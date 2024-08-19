@@ -32,8 +32,7 @@ stop_words = set(stopwords.words('english'))
 
 def preprocess_text(text):
     tokens = word_tokenize(text.lower())
-    tokens = [word for word in tokens if word.isalpha()]
-    tokens = [word for word in tokens if word not in stop_words]
+    tokens = [word for word in tokens if word.isalpha() and word not in stop_words]
     return tokens
 
 df['message'] = df['message'].apply(preprocess_text)
@@ -47,7 +46,7 @@ vocab = {word: i+1 for i, (word, _) in enumerate(vocab.items())}
 vocab_size = len(vocab) + 1
 
 def encode_message(message):
-    return [vocab[word] for word in message]
+    return [vocab.get(word, 0) for word in message]
 
 df['message'] = df['message'].apply(encode_message)
 
