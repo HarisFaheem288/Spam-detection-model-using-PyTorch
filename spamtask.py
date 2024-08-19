@@ -11,6 +11,7 @@ from sklearn.preprocessing import LabelEncoder
 from collections import Counter
 import nltk
 
+# Download NLTK data
 nltk.download('punkt')
 nltk.download('stopwords')
 
@@ -78,31 +79,37 @@ test_data = SpamDataset(X_test, y_test)
 train_loader = DataLoader(train_data, batch_size=64, shuffle=True)
 test_loader = DataLoader(test_data, batch_size=64, shuffle=False)
 
-# RNN model
-class SpamRNN(nn.Module):
-    def __init__(self, vocab_size, embed_size, hidden_size, output_size, n_layers=1):
-        super(SpamRNN, self).__init__()
+# CNN model
+class SpamCNN(nn.Module):
+    def __init__(self, vocab_size, embed_size, num_filters, filter_sizes, output_size, dropout=0.5):
+        super(SpamCNN, self).__init__()
         self.embedding = nn.Embedding(vocab_size, embed_size)
-        self.rnn = nn.RNN(embed_size, hidden_size, n_layers, batch_first=True)
-        self.fc = nn.Linear(hidden_size, output_size)
+        self.convs = nn.ModuleList([
+            nn.Conv2d(1, num_filters, (fs, embed_size)) for fs in filter_sizes
+        ])
+        self.fc = nn.Linear(len(filter_sizes) * num_filters, output_size)
+        self.dropout = nn.Dropout(dropout)
         
     def forward(self, x):
-        embedded = self.embedding(x)
-        output, hidden = self.rnn(embedded)
-        out = self.fc(output[:, -1, :])
-        return out
+        x = self.embedding(x).unsqueeze(1)  # Add channel dimension
+        x = [torch.relu(conv(x)).squeeze(3) for conv in self.convs]
+        x = [torch.max_pool1d(conv, conv.size(2)).squeeze(2) for conv in x]
+        x = torch.cat(x, 1)
+        x = self.dropout(x)
+        return self.fc(x)
 
 # Instantiate the model, define loss and optimizer
 embed_size = 128
-hidden_size = 64
+num_filters = 100
+filter_sizes = [3, 4, 5]
 output_size = 1
-n_layers = 1
+dropout = 0.5
 
-model = SpamRNN(vocab_size, embed_size, hidden_size, output_size, n_layers)
+model = SpamCNN(vocab_size, embed_size, num_filters, filter_sizes, output_size, dropout)
 criterion = nn.BCEWithLogitsLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-# Training the model
+# Training loop
 n_epochs = 5
 
 for epoch in range(n_epochs):
@@ -148,16 +155,14 @@ def predict_message(model, message, vocab, max_len):
         
     return "spam" if prediction > 0.5 else "ham"
 
-# Streamlit app
-st.title("Spam Detection Using RNN")
-st.write("Enter a message to check if it's spam or ham:")
+# Streamlit interface
+st.title("Spam Detection using CNN")
 
-user_input = st.text_input("Message")
+user_input = st.text_area("Enter a message to check if it's spam or ham:")
 
 if st.button("Predict"):
     if user_input:
         prediction = predict_message(model, user_input, vocab, max_len)
-        st.write(f'The message is: **{prediction.upper()}**')
+        st.write(f"The message is: **{prediction.upper()}**")
     else:
-        st.write("Please enter a message to predict.")
-
+        st.write("Please enter a message.")
