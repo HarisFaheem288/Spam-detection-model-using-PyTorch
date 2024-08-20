@@ -11,11 +11,9 @@ from sklearn.preprocessing import LabelEncoder
 from collections import Counter
 import nltk
 
-# Ensure NLTK resources are available
-nltk.data.path.append('C:\nltk_data')  # Adjust path as needed
-nltk.download('punkt', quiet=True)
-nltk.download('punkt_tab', quiet=True)
-nltk.download('stopwords', quiet=True)
+# NLTK data download
+nltk.download('punkt')
+nltk.download('stopwords')
 
 # Load the dataset
 file_path = 'spam1.csv'  # Ensure this file path is correct in your environment
@@ -33,14 +31,10 @@ df['label'] = label_encoder.fit_transform(df['label'])
 stop_words = set(stopwords.words('english'))
 
 def preprocess_text(text):
-    try:
-        tokens = word_tokenize(text.lower())
-        tokens = [word for word in tokens if word.isalpha()]
-        tokens = [word for word in tokens if word not in stop_words]
-        return tokens
-    except Exception as e:
-        st.error(f"An error occurred during text preprocessing: {e}")
-        return []
+    tokens = word_tokenize(text.lower())
+    tokens = [word for word in tokens if word.isalpha()]
+    tokens = [word for word in tokens if word not in stop_words]
+    return tokens
 
 df['message'] = df['message'].apply(preprocess_text)
 
@@ -115,6 +109,13 @@ model = SpamCNN(vocab_size, embed_size, num_filters, filter_sizes, output_size, 
 criterion = nn.BCEWithLogitsLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
+# Streamlit interface
+st.title("Spam Detection using CNN")
+
+st.write("### Training Progress")
+progress_bar = st.progress(0)
+status_text = st.empty()
+
 # Training loop
 n_epochs = 5
 
@@ -122,7 +123,7 @@ for epoch in range(n_epochs):
     model.train()
     running_loss = 0.0
     
-    for messages, labels in train_loader:
+    for batch_idx, (messages, labels) in enumerate(train_loader):
         labels = labels.float().unsqueeze(1)
         
         # Zero the gradients
@@ -140,35 +141,13 @@ for epoch in range(n_epochs):
         
         running_loss += loss.item()
     
-    st.write(f'Epoch [{epoch+1}/{n_epochs}], Loss: {running_loss/len(train_loader):.4f}')
+    # Update progress bar and status text
+    progress_bar.progress((epoch + 1) / n_epochs)
+    status_text.text(f'Epoch [{epoch+1}/{n_epochs}], Loss: {running_loss/len(train_loader):.4f}')
 
-# Function to preprocess and encode new messages
-def predict_message(model, message, vocab, max_len):
-    model.eval()
-    
-    try:
-        # Preprocess the message
-        tokens = preprocess_text(message)
-        encoded_message = [vocab.get(word, 0) for word in tokens]
-        padded_message = encoded_message + [0] * (max_len - len(encoded_message))
-        
-        # Convert to tensor
-        input_tensor = torch.tensor(padded_message).unsqueeze(0)
-        
-        # Make prediction
-        with torch.no_grad():
-            output = model(input_tensor)
-            prediction = torch.sigmoid(output).item()
-            
-        return "spam" if prediction > 0.5 else "ham"
-    except Exception as e:
-        st.error(f"An error occurred during prediction: {e}")
-        return "error"
+st.write("### Enter a message to check if it's spam or ham:")
 
-# Streamlit interface
-st.title("Spam Detection using CNN")
-
-user_input = st.text_area("Enter a message to check if it's spam or ham:")
+user_input = st.text_area("Message:")
 
 if st.button("Predict"):
     if user_input:
@@ -176,3 +155,22 @@ if st.button("Predict"):
         st.write(f"The message is: **{prediction.upper()}**")
     else:
         st.write("Please enter a message.")
+
+# Function to preprocess and encode new messages
+def predict_message(model, message, vocab, max_len):
+    model.eval()
+    
+    # Preprocess the message
+    tokens = preprocess_text(message)
+    encoded_message = [vocab.get(word, 0) for word in tokens]
+    padded_message = encoded_message + [0] * (max_len - len(encoded_message))
+    
+    # Convert to tensor
+    input_tensor = torch.tensor(padded_message).unsqueeze(0)
+    
+    # Make prediction
+    with torch.no_grad():
+        output = model(input_tensor)
+        prediction = torch.sigmoid(output).item()
+        
+    return "spam" if prediction > 0.5 else "ham"
