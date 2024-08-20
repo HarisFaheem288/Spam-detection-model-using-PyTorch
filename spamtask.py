@@ -11,15 +11,10 @@ from sklearn.preprocessing import LabelEncoder
 from collections import Counter
 import nltk
 
-# Attempt to download NLTK data, with error handling
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt_tab')
-try:
-    nltk.data.find('corpora/stopwords')
-except LookupError:
-    nltk.download('stopwords')
+# Ensure NLTK resources are available
+nltk.data.path.append('C:\nltk_data')  # Adjust path as needed
+nltk.download('punkt', quiet=True)
+nltk.download('stopwords', quiet=True)
 
 # Load the dataset
 file_path = 'spam1.csv'  # Ensure this file path is correct in your environment
@@ -37,10 +32,14 @@ df['label'] = label_encoder.fit_transform(df['label'])
 stop_words = set(stopwords.words('english'))
 
 def preprocess_text(text):
-    tokens = word_tokenize(text.lower())
-    tokens = [word for word in tokens if word.isalpha()]
-    tokens = [word for word in tokens if word not in stop_words]
-    return tokens
+    try:
+        tokens = word_tokenize(text.lower())
+        tokens = [word for word in tokens if word.isalpha()]
+        tokens = [word for word in tokens if word not in stop_words]
+        return tokens
+    except Exception as e:
+        st.error(f"An error occurred during text preprocessing: {e}")
+        return []
 
 df['message'] = df['message'].apply(preprocess_text)
 
@@ -146,20 +145,24 @@ for epoch in range(n_epochs):
 def predict_message(model, message, vocab, max_len):
     model.eval()
     
-    # Preprocess the message
-    tokens = preprocess_text(message)
-    encoded_message = [vocab.get(word, 0) for word in tokens]
-    padded_message = encoded_message + [0] * (max_len - len(encoded_message))
-    
-    # Convert to tensor
-    input_tensor = torch.tensor(padded_message).unsqueeze(0)
-    
-    # Make prediction
-    with torch.no_grad():
-        output = model(input_tensor)
-        prediction = torch.sigmoid(output).item()
+    try:
+        # Preprocess the message
+        tokens = preprocess_text(message)
+        encoded_message = [vocab.get(word, 0) for word in tokens]
+        padded_message = encoded_message + [0] * (max_len - len(encoded_message))
         
-    return "spam" if prediction > 0.5 else "ham"
+        # Convert to tensor
+        input_tensor = torch.tensor(padded_message).unsqueeze(0)
+        
+        # Make prediction
+        with torch.no_grad():
+            output = model(input_tensor)
+            prediction = torch.sigmoid(output).item()
+            
+        return "spam" if prediction > 0.5 else "ham"
+    except Exception as e:
+        st.error(f"An error occurred during prediction: {e}")
+        return "error"
 
 # Streamlit interface
 st.title("Spam Detection using CNN")
