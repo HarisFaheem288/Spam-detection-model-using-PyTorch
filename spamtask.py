@@ -12,11 +12,8 @@ from collections import Counter
 import nltk
 
 # Download NLTK data
-try:
-    nltk.download('punkt', quiet=True)
-    nltk.download('stopwords', quiet=True)
-except Exception as e:
-    st.error(f"An error occurred while downloading NLTK data: {e}")
+nltk.download('punkt')
+nltk.download('stopwords')
 
 # Load the dataset
 file_path = 'spam1.csv'  # Ensure this file path is correct in your environment
@@ -34,14 +31,10 @@ df['label'] = label_encoder.fit_transform(df['label'])
 stop_words = set(stopwords.words('english'))
 
 def preprocess_text(text):
-    try:
-        tokens = word_tokenize(text.lower())
-        tokens = [word for word in tokens if word.isalpha()]
-        tokens = [word for word in tokens if word not in stop_words]
-        return tokens
-    except Exception as e:
-        st.error(f"An error occurred during text preprocessing: {e}")
-        return []
+    tokens = word_tokenize(text.lower())
+    tokens = [word for word in tokens if word.isalpha()]
+    tokens = [word for word in tokens if word not in stop_words]
+    return tokens
 
 df['message'] = df['message'].apply(preprocess_text)
 
@@ -141,30 +134,26 @@ for epoch in range(n_epochs):
         
         running_loss += loss.item()
     
-    print(f'Epoch [{epoch+1}/{n_epochs}], Loss: {running_loss/len(train_loader):.4f}')
+    st.write(f'Epoch [{epoch+1}/{n_epochs}], Loss: {running_loss/len(train_loader):.4f}')
 
 # Function to preprocess and encode new messages
 def predict_message(model, message, vocab, max_len):
     model.eval()
     
-    try:
-        # Preprocess the message
-        tokens = preprocess_text(message)
-        encoded_message = [vocab.get(word, 0) for word in tokens]
-        padded_message = encoded_message + [0] * (max_len - len(encoded_message))
+    # Preprocess the message
+    tokens = preprocess_text(message)
+    encoded_message = [vocab.get(word, 0) for word in tokens]
+    padded_message = encoded_message + [0] * (max_len - len(encoded_message))
+    
+    # Convert to tensor
+    input_tensor = torch.tensor(padded_message).unsqueeze(0)
+    
+    # Make prediction
+    with torch.no_grad():
+        output = model(input_tensor)
+        prediction = torch.sigmoid(output).item()
         
-        # Convert to tensor
-        input_tensor = torch.tensor(padded_message).unsqueeze(0)
-        
-        # Make prediction
-        with torch.no_grad():
-            output = model(input_tensor)
-            prediction = torch.sigmoid(output).item()
-            
-        return "spam" if prediction > 0.5 else "ham"
-    except Exception as e:
-        st.error(f"An error occurred during prediction: {e}")
-        return "error"
+    return "spam" if prediction > 0.5 else "ham"
 
 # Streamlit interface
 st.title("Spam Detection using CNN")
