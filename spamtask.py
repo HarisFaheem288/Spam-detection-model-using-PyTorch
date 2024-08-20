@@ -109,6 +109,25 @@ model = SpamCNN(vocab_size, embed_size, num_filters, filter_sizes, output_size, 
 criterion = nn.BCEWithLogitsLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
+# Function to preprocess and encode new messages
+def predict_message(model, message, vocab, max_len):
+    model.eval()
+    
+    # Preprocess the message
+    tokens = preprocess_text(message)
+    encoded_message = [vocab.get(word, 0) for word in tokens]
+    padded_message = encoded_message + [0] * (max_len - len(encoded_message))
+    
+    # Convert to tensor
+    input_tensor = torch.tensor(padded_message).unsqueeze(0)
+    
+    # Make prediction
+    with torch.no_grad():
+        output = model(input_tensor)
+        prediction = torch.sigmoid(output).item()
+        
+    return "spam" if prediction > 0.5 else "ham"
+
 # Streamlit interface
 st.title("Spam Detection using CNN")
 
@@ -155,22 +174,3 @@ if st.button("Predict"):
         st.write(f"The message is: **{prediction.upper()}**")
     else:
         st.write("Please enter a message.")
-
-# Function to preprocess and encode new messages
-def predict_message(model, message, vocab, max_len):
-    model.eval()
-    
-    # Preprocess the message
-    tokens = preprocess_text(message)
-    encoded_message = [vocab.get(word, 0) for word in tokens]
-    padded_message = encoded_message + [0] * (max_len - len(encoded_message))
-    
-    # Convert to tensor
-    input_tensor = torch.tensor(padded_message).unsqueeze(0)
-    
-    # Make prediction
-    with torch.no_grad():
-        output = model(input_tensor)
-        prediction = torch.sigmoid(output).item()
-        
-    return "spam" if prediction > 0.5 else "ham"
