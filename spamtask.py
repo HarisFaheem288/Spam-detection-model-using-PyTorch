@@ -14,6 +14,7 @@ import nltk
 # Ensure NLTK resources are available
 nltk.data.path.append('C:\nltk_data')  # Adjust path as needed
 nltk.download('punkt', quiet=True)
+nltk.download('punkt_tab', quiet=True)
 nltk.download('stopwords', quiet=True)
 
 # Load the dataset
