@@ -11,9 +11,15 @@ from sklearn.preprocessing import LabelEncoder
 from collections import Counter
 import nltk
 
-# Download NLTK data
-nltk.download('punkt')
-nltk.download('stopwords')
+# Attempt to download NLTK data, with error handling
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt')
+try:
+    nltk.data.find('corpora/stopwords')
+except LookupError:
+    nltk.download('stopwords')
 
 # Load the dataset
 file_path = 'spam1.csv'  # Ensure this file path is correct in your environment
